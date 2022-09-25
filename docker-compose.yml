@@ -1,22 +1,35 @@
 version: "3"
-services:
 
+services:
   client:
     build: .
     networks:
       - habitica
+      - proxy
     environment:
       - BASE_URL=http://server:3000
-    ports:
-        - "8080:8080"
+    expose:
+        - "8080"
     command: ["npm", "run", "client:dev"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.habitica.entrypoints=web"
+      - "traefik.http.routers.habitica.rule=Host(`habits.lab.squeezeyourtime.com`)"
+      - "traefik.http.middlewares.habitica-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.habitica.middlewares=habitica-https-redirect"
+      - "traefik.http.routers.habitica-secure.entrypoints=websecure"
+      - "traefik.http.routers.habitica-secure.rule=Host(`habits.lab.squeezeyourtime.com`)"
+      - "traefik.http.routers.habitica-secure.tls=true"
+      - "traefik.http.routers.habitica-secure.service=habitica"
+      - "traefik.http.services.habitica.loadbalancer.server.port=8080"
+      - "traefik.docker.network=proxy"
     depends_on:
       - server
 
   server:
     build: .
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     networks:
       - habitica
     environment:
@@ -26,11 +39,14 @@ services:
 
   mongo:
     image: mongo:3.6
-    ports:
-      - "27017:27017"
+    expose:
+      - "27017"
     networks:
       - habitica
 
 networks:
   habitica:
     driver: bridge
+
+  proxy:
+    external: true
